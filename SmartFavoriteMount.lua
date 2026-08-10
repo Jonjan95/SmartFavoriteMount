@@ -241,31 +241,53 @@ local function ListFavorites()
     )
 end
 
+local function GetUsableFavorite(favorites)
+    local candidates = {}
+
+    for mountID, isFavorite in pairs(favorites) do
+        if isFavorite then
+            local name, spellID, icon, isActive, isUsable, sourceType,
+                  isFavoriteBlizzard, isFactionSpecific, faction,
+                  shouldHideOnChar, isCollected =
+                C_MountJournal.GetMountInfoByID(mountID)
+
+            if isCollected and isUsable then
+                table.insert(candidates, mountID)
+            end
+        end
+    end
+
+    if #candidates == 0 then
+        return nil
+    end
+
+    return candidates[math.random(#candidates)]
+end
 
 -- =========================================================
 -- Smart summon
 -- =========================================================
 
 function SummonSmartFavorite()
-    local favorites
+    local mountID
     local mountType
 
     if IsFlyableArea() then
-        favorites = SmartFavoriteMountDB.flying
-        mountType = "Flying"
+        mountID = GetUsableFavorite(SmartFavoriteMountDB.flying)
+
+        if mountID then
+            mountType = "Flying"
+        else
+            mountID = GetUsableFavorite(SmartFavoriteMountDB.ground)
+            mountType = "Ground fallback"
+        end
     else
-        favorites = SmartFavoriteMountDB.ground
+        mountID = GetUsableFavorite(SmartFavoriteMountDB.ground)
         mountType = "Ground"
     end
 
-    local mountID = GetRandomFavorite(favorites)
-
     if not mountID then
-        print(
-            "|cffff4444Smart Favorite Mount:|r No "
-            .. mountType
-            .. " favorites found."
-        )
+        print("|cffff4444Smart Favorite Mount:|r No usable favorites found.")
         return
     end
 
