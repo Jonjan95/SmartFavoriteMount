@@ -172,6 +172,11 @@ end
 -- =========================================================
 
 function SummonSmartFavorite()
+    if IsMounted() then
+        Dismount()
+        return
+    end
+
     local mountID
 
     if IsFlyableArea() then
@@ -185,10 +190,6 @@ function SummonSmartFavorite()
     end
 
     if not mountID then
-        print(
-            "|cffff4444Smart Favorite Mount:|r "
-            .. "No usable favorites found."
-        )
         return
     end
 
