@@ -1,22 +1,39 @@
 # Smart Favorite Mount
 
-A lightweight World of Warcraft addon that automatically selects between favorite flying and ground mounts based on whether flying is available in the current area.
+A lightweight World of Warcraft addon that automatically summons the right type of favorite mount for your current area.
 
-## Current Features
+## Features
 
-- Detects whether the current area allows flying
-- Separate ground and flying mount pools
-- Randomly selects from the appropriate pool
-- `/sfm` command for smart mount selection
-- Debug commands for development
+- Separate favorites for ground and flying mounts
+- Automatically detects whether flying is available
+- Randomly summons one of your usable favorites
+- Falls back to a ground mount when needed
+- Add or remove favorites directly from the Mount Journal
+- Dedicated keybinding
+- No unnecessary UI or chat spam
 
-## Status
+## Usage
 
-Early development prototype.
+1. Open the Mount Journal.
+2. Select a mount and add it as a **Ground** or **Flying** favorite.
+3. Bind **Summon Smart Favorite Mount** in the game's Keybindings.
+4. Use the keybind and the addon handles the rest.
 
-## Planned Features
+Your favorites are saved automatically between sessions.
 
-- Persistent favorites with SavedVariables
-- Add/remove/list favorite commands
-- Keybinding support
-- Mount Journal integration
+## Slash Commands
+
+`/sfm` — Summon a smart favorite mount  
+`/sfm list` — Show your current favorites
+
+## Installation
+
+Copy the `SmartFavoriteMount` folder to:
+
+`World of Warcraft/_retail_/Interface/AddOns/`
+
+Then restart the game or use `/reload`.
+
+## License
+
+MIT
