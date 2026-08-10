@@ -298,15 +298,15 @@ local function UpdateMountJournalButtons()
     local mountID = MountJournal.selectedMountID
 
     if IsFavorite("ground", mountID) then
-        groundFavoriteButton:SetText("★ Ground")
+        groundFavoriteButton:SetText("Ground +")
     else
-        groundFavoriteButton:SetText("☆ Ground")
+        groundFavoriteButton:SetText("Ground")
     end
 
     if IsFavorite("flying", mountID) then
-        flyingFavoriteButton:SetText("★ Flying")
+        flyingFavoriteButton:SetText("Flying +")
     else
-        flyingFavoriteButton:SetText("☆ Flying")
+        flyingFavoriteButton:SetText("Flying")
     end
 end
 
@@ -320,6 +320,10 @@ local function CreateMountJournalButtons()
         return
     end
 
+    -- =====================================================
+    -- Ground button
+    -- =====================================================
+
     groundFavoriteButton = CreateFrame(
         "Button",
         nil,
@@ -328,7 +332,7 @@ local function CreateMountJournalButtons()
     )
 
     groundFavoriteButton:SetSize(110, 24)
-    groundFavoriteButton:SetText("☆ Ground")
+    groundFavoriteButton:SetText("Ground")
     groundFavoriteButton:SetFrameStrata("DIALOG")
     groundFavoriteButton:SetFrameLevel(MountJournal:GetFrameLevel() + 20)
 
@@ -337,9 +341,10 @@ local function CreateMountJournalButtons()
         MountJournal,
         "BOTTOM",
         -60,
-        40
+        0
     )
 
+    -- Ground: click
     groundFavoriteButton:SetScript("OnClick", function()
         local mountID = MountJournal.selectedMountID
 
@@ -351,6 +356,49 @@ local function CreateMountJournalButtons()
         UpdateMountJournalButtons()
     end)
 
+    -- Ground: tooltip
+    groundFavoriteButton:SetScript("OnEnter", function(self)
+        local mountID = MountJournal.selectedMountID
+
+        if not mountID then
+            return
+        end
+
+        local mountName = GetMountName(mountID) or "Selected mount"
+        local isFavorite = IsFavorite("ground", mountID)
+
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Ground Favorite")
+
+        if isFavorite then
+            GameTooltip:AddLine(
+                "Click to remove " .. mountName .. " from your ground favorites.",
+                1,
+                1,
+                1,
+                true
+            )
+        else
+            GameTooltip:AddLine(
+                "Click to add " .. mountName .. " to your ground favorites.",
+                1,
+                1,
+                1,
+                true
+            )
+        end
+
+        GameTooltip:Show()
+    end)
+
+    groundFavoriteButton:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+
+    -- =====================================================
+    -- Flying button
+    -- =====================================================
 
     flyingFavoriteButton = CreateFrame(
         "Button",
@@ -360,7 +408,7 @@ local function CreateMountJournalButtons()
     )
 
     flyingFavoriteButton:SetSize(110, 24)
-    flyingFavoriteButton:SetText("☆ Flying")
+    flyingFavoriteButton:SetText("Flying")
     flyingFavoriteButton:SetFrameStrata("DIALOG")
     flyingFavoriteButton:SetFrameLevel(MountJournal:GetFrameLevel() + 20)
 
@@ -372,6 +420,7 @@ local function CreateMountJournalButtons()
         0
     )
 
+    -- Flying: click
     flyingFavoriteButton:SetScript("OnClick", function()
         local mountID = MountJournal.selectedMountID
 
@@ -381,6 +430,45 @@ local function CreateMountJournalButtons()
 
         ToggleFavorite("flying", mountID)
         UpdateMountJournalButtons()
+    end)
+
+    -- Flying: tooltip
+    flyingFavoriteButton:SetScript("OnEnter", function(self)
+        local mountID = MountJournal.selectedMountID
+
+        if not mountID then
+            return
+        end
+
+        local mountName = GetMountName(mountID) or "Selected mount"
+        local isFavorite = IsFavorite("flying", mountID)
+
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Flying Favorite")
+
+        if isFavorite then
+            GameTooltip:AddLine(
+                "Click to remove " .. mountName .. " from your flying favorites.",
+                1,
+                1,
+                1,
+                true
+            )
+        else
+            GameTooltip:AddLine(
+                "Click to add " .. mountName .. " to your flying favorites.",
+                1,
+                1,
+                1,
+                true
+            )
+        end
+
+        GameTooltip:Show()
+    end)
+
+    flyingFavoriteButton:SetScript("OnLeave", function()
+        GameTooltip:Hide()
     end)
 
     UpdateMountJournalButtons()
