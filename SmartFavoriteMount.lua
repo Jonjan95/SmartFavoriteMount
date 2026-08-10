@@ -1,3 +1,6 @@
+BINDING_NAME_SFM_SUMMON_SMART_FAVORITE = "Summon Smart Favorite Mount"
+
+
 local function FindMountByName(searchName)
     local mountIDs = C_MountJournal.GetMountIDs()
 
@@ -127,7 +130,7 @@ local function ListFavorites()
     end
 end
 
-local function SummonSmartFavorite()
+function SummonSmartFavorite()
     local favorites
     local mountType
 

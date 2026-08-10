@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="SFM_SUMMON_SMART_FAVORITE">
+        SummonSmartFavorite()
+    </Binding>
+</Bindings>
