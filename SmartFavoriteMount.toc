@@ -1,0 +1,7 @@
+## Interface: 120007
+## Title: Smart Favorite Mount
+## Notes: Automatically selects a favorite flying or ground mount.
+## Author: Jonathan
+## Version: 0.1.0
+
+SmartFavoriteMount.lua
