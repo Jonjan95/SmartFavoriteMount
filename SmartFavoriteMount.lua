@@ -2,8 +2,8 @@ BINDING_NAME_SFM_SUMMON_SMART_FAVORITE = "Summon Smart Favorite Mount"
 
 local DATABASE_VERSION = 2
 
-local groundFavoriteButton
-local flyingFavoriteButton
+local groundFavoriteCheckbox
+local flyingFavoriteCheckbox
 local mountJournalHooked = false
 
 
@@ -201,8 +201,8 @@ end
 -- Mount Journal UI
 -- =========================================================
 
-local function UpdateMountJournalButtons()
-    if not groundFavoriteButton or not flyingFavoriteButton then
+local function UpdateMountJournalCheckboxes()
+    if not groundFavoriteCheckbox or not flyingFavoriteCheckbox then
         return
     end
 
@@ -212,17 +212,8 @@ local function UpdateMountJournalButtons()
 
     local mountID = MountJournal.selectedMountID
 
-    if IsFavorite("ground", mountID) then
-        groundFavoriteButton:SetText("Ground +")
-    else
-        groundFavoriteButton:SetText("Ground")
-    end
-
-    if IsFavorite("flying", mountID) then
-        flyingFavoriteButton:SetText("Flying +")
-    else
-        flyingFavoriteButton:SetText("Flying")
-    end
+    groundFavoriteCheckbox:SetChecked(IsFavorite("ground", mountID))
+    flyingFavoriteCheckbox:SetChecked(IsFavorite("flying", mountID))
 end
 
 
@@ -269,101 +260,79 @@ local function ShowFavoriteTooltip(button, mountType, title)
 end
 
 
-local function CreateMountJournalButtons()
-    if groundFavoriteButton or not MountJournal then
+local function CreateFavoriteCheckbox(mountType, labelText, tooltipTitle)
+    local checkbox = CreateFrame(
+        "CheckButton",
+        nil,
+        MountJournal,
+        "UICheckButtonTemplate"
+    )
+
+    checkbox:SetSize(24, 24)
+    checkbox:SetHitRectInsets(0, -70, 0, 0)
+    checkbox:SetFrameStrata("DIALOG")
+    checkbox:SetFrameLevel(MountJournal:GetFrameLevel() + 20)
+
+    checkbox.Text:SetFontObject("GameFontHighlight")
+    checkbox.Text:SetText(labelText)
+
+    checkbox:SetScript("OnClick", function()
+        local mountID = MountJournal.selectedMountID
+
+        if not mountID then
+            return
+        end
+
+        ToggleFavorite(mountType, mountID)
+        UpdateMountJournalCheckboxes()
+    end)
+
+    checkbox:SetScript("OnEnter", function(self)
+        ShowFavoriteTooltip(self, mountType, tooltipTitle)
+    end)
+
+    checkbox:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    return checkbox
+end
+
+
+local function CreateMountJournalCheckboxes()
+    if groundFavoriteCheckbox or not MountJournal then
         return
     end
 
-    -- Ground button
-    groundFavoriteButton = CreateFrame(
-        "Button",
-        nil,
-        MountJournal,
-        "UIPanelButtonTemplate"
+    groundFavoriteCheckbox = CreateFavoriteCheckbox(
+        "ground",
+        "Ground",
+        "Ground Favorite"
     )
 
-    groundFavoriteButton:SetSize(110, 24)
-    groundFavoriteButton:SetText("Ground")
-    groundFavoriteButton:SetFrameStrata("DIALOG")
-    groundFavoriteButton:SetFrameLevel(MountJournal:GetFrameLevel() + 20)
-
-    groundFavoriteButton:SetPoint(
+    groundFavoriteCheckbox:SetPoint(
         "BOTTOM",
         MountJournal,
         "BOTTOM",
-        -60,
+        -75,
         0
     )
 
-    groundFavoriteButton:SetScript("OnClick", function()
-        local mountID = MountJournal.selectedMountID
-
-        if not mountID then
-            return
-        end
-
-        ToggleFavorite("ground", mountID)
-        UpdateMountJournalButtons()
-    end)
-
-    groundFavoriteButton:SetScript("OnEnter", function(self)
-        ShowFavoriteTooltip(
-            self,
-            "ground",
-            "Ground Favorite"
-        )
-    end)
-
-    groundFavoriteButton:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-
-
-    -- Flying button
-    flyingFavoriteButton = CreateFrame(
-        "Button",
-        nil,
-        MountJournal,
-        "UIPanelButtonTemplate"
+    flyingFavoriteCheckbox = CreateFavoriteCheckbox(
+        "flying",
+        "Flying",
+        "Flying Favorite"
     )
 
-    flyingFavoriteButton:SetSize(110, 24)
-    flyingFavoriteButton:SetText("Flying")
-    flyingFavoriteButton:SetFrameStrata("DIALOG")
-    flyingFavoriteButton:SetFrameLevel(MountJournal:GetFrameLevel() + 20)
-
-    flyingFavoriteButton:SetPoint(
+    flyingFavoriteCheckbox:SetPoint(
         "LEFT",
-        groundFavoriteButton,
+        groundFavoriteCheckbox.Text,
         "RIGHT",
-        10,
+        24,
         0
     )
 
-    flyingFavoriteButton:SetScript("OnClick", function()
-        local mountID = MountJournal.selectedMountID
-
-        if not mountID then
-            return
-        end
-
-        ToggleFavorite("flying", mountID)
-        UpdateMountJournalButtons()
-    end)
-
-    flyingFavoriteButton:SetScript("OnEnter", function(self)
-        ShowFavoriteTooltip(
-            self,
-            "flying",
-            "Flying Favorite"
-        )
-    end)
-
-    flyingFavoriteButton:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
-
-    UpdateMountJournalButtons()
+    UpdateMountJournalCheckboxes()
 end
 
 
@@ -372,12 +341,12 @@ local function SetupMountJournal()
         return
     end
 
-    CreateMountJournalButtons()
+    CreateMountJournalCheckboxes()
 
     if not mountJournalHooked and MountJournal_SetSelected then
         hooksecurefunc(
             "MountJournal_SetSelected",
-            UpdateMountJournalButtons
+            UpdateMountJournalCheckboxes
         )
 
         mountJournalHooked = true
