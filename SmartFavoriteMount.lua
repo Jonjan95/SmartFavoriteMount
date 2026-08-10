@@ -4,6 +4,7 @@ local DATABASE_VERSION = 2
 
 local groundFavoriteButton
 local flyingFavoriteButton
+local mountJournalHooked = false
 
 
 -- =========================================================
@@ -11,9 +12,7 @@ local flyingFavoriteButton
 -- =========================================================
 
 local function FindMountByName(searchName)
-    local mountIDs = C_MountJournal.GetMountIDs()
-
-    for _, mountID in ipairs(mountIDs) do
+    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
         local name = C_MountJournal.GetMountInfoByID(mountID)
 
         if name and string.lower(name) == string.lower(searchName) then
@@ -26,26 +25,29 @@ end
 
 
 local function GetMountName(mountID)
-    local name = C_MountJournal.GetMountInfoByID(mountID)
-
-    return name
+    return C_MountJournal.GetMountInfoByID(mountID)
 end
 
 
-local function GetRandomFavorite(favorites)
-    local mountIDs = {}
+local function GetUsableFavorite(favorites)
+    local candidates = {}
 
     for mountID, isFavorite in pairs(favorites) do
-        if isFavorite and type(mountID) == "number" then
-            table.insert(mountIDs, mountID)
+        if isFavorite then
+            local _, _, _, _, isUsable, _, _, _, _, _, isCollected =
+                C_MountJournal.GetMountInfoByID(mountID)
+
+            if isCollected and isUsable then
+                table.insert(candidates, mountID)
+            end
         end
     end
 
-    if #mountIDs == 0 then
+    if #candidates == 0 then
         return nil
     end
 
-    return mountIDs[math.random(#mountIDs)]
+    return candidates[math.random(#candidates)]
 end
 
 
@@ -61,9 +63,7 @@ local function MigrateFavorites(oldFavorites)
     end
 
     for key, value in pairs(oldFavorites) do
-
-        -- Old format:
-        -- { "Raven Lord", "Invincible" }
+        -- Old format: { "Raven Lord", "Invincible" }
         if type(key) == "number" and type(value) == "string" then
             local mountID = FindMountByName(value)
 
@@ -71,8 +71,7 @@ local function MigrateFavorites(oldFavorites)
                 migratedFavorites[mountID] = true
             end
 
-        -- New format already:
-        -- { [185] = true }
+        -- Current format: { [185] = true }
         elseif type(key) == "number" and value == true then
             migratedFavorites[key] = true
         end
@@ -105,11 +104,6 @@ local function InitializeDatabase()
             MigrateFavorites(SmartFavoriteMountDB.flying)
 
         SmartFavoriteMountDB.version = DATABASE_VERSION
-
-        print(
-            "|cff00ccffSmart Favorite Mount:|r "
-            .. "Favorite database upgraded."
-        )
     end
 end
 
@@ -117,90 +111,21 @@ end
 local function IsFavorite(mountType, mountID)
     local favorites = SmartFavoriteMountDB[mountType]
 
-    if not favorites then
-        return false
-    end
-
-    return favorites[mountID] == true
-end
-
-
-local function AddFavorite(mountType, mountID)
-    local favorites = SmartFavoriteMountDB[mountType]
-
-    if not favorites then
-        print("|cffff4444Smart Favorite Mount:|r Invalid mount type.")
-        return
-    end
-
-    local mountName = GetMountName(mountID)
-
-    if not mountName then
-        print("|cffff4444Smart Favorite Mount:|r Mount not found.")
-        return
-    end
-
-    if favorites[mountID] then
-        print(
-            "|cffffcc00Smart Favorite Mount:|r "
-            .. mountName
-            .. " is already a "
-            .. mountType
-            .. " favorite."
-        )
-        return
-    end
-
-    favorites[mountID] = true
-
-    print(
-        "|cff00ff00Smart Favorite Mount:|r Added "
-        .. mountName
-        .. " as "
-        .. mountType
-        .. "."
-    )
-end
-
-
-local function RemoveFavorite(mountType, mountID)
-    local favorites = SmartFavoriteMountDB[mountType]
-
-    if not favorites then
-        print("|cffff4444Smart Favorite Mount:|r Invalid mount type.")
-        return
-    end
-
-    local mountName = GetMountName(mountID) or "Unknown Mount"
-
-    if not favorites[mountID] then
-        print(
-            "|cffff4444Smart Favorite Mount:|r "
-            .. mountName
-            .. " is not a "
-            .. mountType
-            .. " favorite."
-        )
-        return
-    end
-
-    favorites[mountID] = nil
-
-    print(
-        "|cff00ff00Smart Favorite Mount:|r Removed "
-        .. mountName
-        .. " from "
-        .. mountType
-        .. " favorites."
-    )
+    return favorites and favorites[mountID] == true
 end
 
 
 local function ToggleFavorite(mountType, mountID)
-    if IsFavorite(mountType, mountID) then
-        RemoveFavorite(mountType, mountID)
+    local favorites = SmartFavoriteMountDB[mountType]
+
+    if not favorites then
+        return
+    end
+
+    if favorites[mountID] then
+        favorites[mountID] = nil
     else
-        AddFavorite(mountType, mountID)
+        favorites[mountID] = true
     end
 end
 
@@ -241,28 +166,6 @@ local function ListFavorites()
     )
 end
 
-local function GetUsableFavorite(favorites)
-    local candidates = {}
-
-    for mountID, isFavorite in pairs(favorites) do
-        if isFavorite then
-            local name, spellID, icon, isActive, isUsable, sourceType,
-                  isFavoriteBlizzard, isFactionSpecific, faction,
-                  shouldHideOnChar, isCollected =
-                C_MountJournal.GetMountInfoByID(mountID)
-
-            if isCollected and isUsable then
-                table.insert(candidates, mountID)
-            end
-        end
-    end
-
-    if #candidates == 0 then
-        return nil
-    end
-
-    return candidates[math.random(#candidates)]
-end
 
 -- =========================================================
 -- Smart summon
@@ -270,35 +173,24 @@ end
 
 function SummonSmartFavorite()
     local mountID
-    local mountType
 
     if IsFlyableArea() then
         mountID = GetUsableFavorite(SmartFavoriteMountDB.flying)
 
-        if mountID then
-            mountType = "Flying"
-        else
+        if not mountID then
             mountID = GetUsableFavorite(SmartFavoriteMountDB.ground)
-            mountType = "Ground fallback"
         end
     else
         mountID = GetUsableFavorite(SmartFavoriteMountDB.ground)
-        mountType = "Ground"
     end
 
     if not mountID then
-        print("|cffff4444Smart Favorite Mount:|r No usable favorites found.")
+        print(
+            "|cffff4444Smart Favorite Mount:|r "
+            .. "No usable favorites found."
+        )
         return
     end
-
-    local mountName = GetMountName(mountID) or "Unknown Mount"
-
-    print(
-        "|cff00ccffSmart Favorite Mount:|r "
-        .. mountType
-        .. " → "
-        .. mountName
-    )
 
     C_MountJournal.SummonByID(mountID)
 end
@@ -333,19 +225,55 @@ local function UpdateMountJournalButtons()
 end
 
 
+local function ShowFavoriteTooltip(button, mountType, title)
+    local mountID = MountJournal.selectedMountID
+
+    if not mountID then
+        return
+    end
+
+    local mountName = GetMountName(mountID) or "Selected mount"
+    local isFavorite = IsFavorite(mountType, mountID)
+
+    GameTooltip:SetOwner(button, "ANCHOR_TOP")
+    GameTooltip:SetText(title)
+
+    if isFavorite then
+        GameTooltip:AddLine(
+            "Click to remove "
+                .. mountName
+                .. " from your "
+                .. mountType
+                .. " favorites.",
+            1,
+            1,
+            1,
+            true
+        )
+    else
+        GameTooltip:AddLine(
+            "Click to add "
+                .. mountName
+                .. " to your "
+                .. mountType
+                .. " favorites.",
+            1,
+            1,
+            1,
+            true
+        )
+    end
+
+    GameTooltip:Show()
+end
+
+
 local function CreateMountJournalButtons()
-    if groundFavoriteButton then
+    if groundFavoriteButton or not MountJournal then
         return
     end
 
-    if not MountJournal then
-        return
-    end
-
-    -- =====================================================
     -- Ground button
-    -- =====================================================
-
     groundFavoriteButton = CreateFrame(
         "Button",
         nil,
@@ -366,7 +294,6 @@ local function CreateMountJournalButtons()
         0
     )
 
-    -- Ground: click
     groundFavoriteButton:SetScript("OnClick", function()
         local mountID = MountJournal.selectedMountID
 
@@ -378,39 +305,12 @@ local function CreateMountJournalButtons()
         UpdateMountJournalButtons()
     end)
 
-    -- Ground: tooltip
     groundFavoriteButton:SetScript("OnEnter", function(self)
-        local mountID = MountJournal.selectedMountID
-
-        if not mountID then
-            return
-        end
-
-        local mountName = GetMountName(mountID) or "Selected mount"
-        local isFavorite = IsFavorite("ground", mountID)
-
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Ground Favorite")
-
-        if isFavorite then
-            GameTooltip:AddLine(
-                "Click to remove " .. mountName .. " from your ground favorites.",
-                1,
-                1,
-                1,
-                true
-            )
-        else
-            GameTooltip:AddLine(
-                "Click to add " .. mountName .. " to your ground favorites.",
-                1,
-                1,
-                1,
-                true
-            )
-        end
-
-        GameTooltip:Show()
+        ShowFavoriteTooltip(
+            self,
+            "ground",
+            "Ground Favorite"
+        )
     end)
 
     groundFavoriteButton:SetScript("OnLeave", function()
@@ -418,10 +318,7 @@ local function CreateMountJournalButtons()
     end)
 
 
-    -- =====================================================
     -- Flying button
-    -- =====================================================
-
     flyingFavoriteButton = CreateFrame(
         "Button",
         nil,
@@ -442,7 +339,6 @@ local function CreateMountJournalButtons()
         0
     )
 
-    -- Flying: click
     flyingFavoriteButton:SetScript("OnClick", function()
         local mountID = MountJournal.selectedMountID
 
@@ -454,39 +350,12 @@ local function CreateMountJournalButtons()
         UpdateMountJournalButtons()
     end)
 
-    -- Flying: tooltip
     flyingFavoriteButton:SetScript("OnEnter", function(self)
-        local mountID = MountJournal.selectedMountID
-
-        if not mountID then
-            return
-        end
-
-        local mountName = GetMountName(mountID) or "Selected mount"
-        local isFavorite = IsFavorite("flying", mountID)
-
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:SetText("Flying Favorite")
-
-        if isFavorite then
-            GameTooltip:AddLine(
-                "Click to remove " .. mountName .. " from your flying favorites.",
-                1,
-                1,
-                1,
-                true
-            )
-        else
-            GameTooltip:AddLine(
-                "Click to add " .. mountName .. " to your flying favorites.",
-                1,
-                1,
-                1,
-                true
-            )
-        end
-
-        GameTooltip:Show()
+        ShowFavoriteTooltip(
+            self,
+            "flying",
+            "Flying Favorite"
+        )
     end)
 
     flyingFavoriteButton:SetScript("OnLeave", function()
@@ -497,20 +366,20 @@ local function CreateMountJournalButtons()
 end
 
 
-local function SetupMountJournalHooks()
+local function SetupMountJournal()
     if not MountJournal then
         return
     end
 
     CreateMountJournalButtons()
 
-    if MountJournal_SetSelected then
+    if not mountJournalHooked and MountJournal_SetSelected then
         hooksecurefunc(
             "MountJournal_SetSelected",
-            function()
-                UpdateMountJournalButtons()
-            end
+            UpdateMountJournalButtons
         )
+
+        mountJournalHooked = true
     end
 end
 
@@ -523,98 +392,32 @@ local eventFrame = CreateFrame("Frame")
 
 eventFrame:RegisterEvent("ADDON_LOADED")
 
-eventFrame:SetScript("OnEvent", function(self, event, addonName)
+eventFrame:SetScript("OnEvent", function(_, _, addonName)
     if addonName == "SmartFavoriteMount" then
         InitializeDatabase()
 
-        print("|cff00ccffSmart Favorite Mount|r loaded!")
-    end
-
-    if addonName == "Blizzard_Collections" then
-        SetupMountJournalHooks()
+        -- Covers the case where Blizzard_Collections
+        -- was already loaded before this addon.
+        if MountJournal then
+            SetupMountJournal()
+        end
+    elseif addonName == "Blizzard_Collections" then
+        SetupMountJournal()
     end
 end)
 
 
 -- =========================================================
--- Main slash command
+-- Slash command
 -- =========================================================
 
 SLASH_SMARTFAVORITEMOUNT1 = "/sfm"
 
 SlashCmdList["SMARTFAVORITEMOUNT"] = function(msg)
-    local command, rest = msg:match("^(%S*)%s*(.-)$")
-
-    command = string.lower(command or "")
+    local command = string.lower(msg or "")
 
     if command == "" then
         SummonSmartFavorite()
-        return
-    end
-
-    if command == "add" then
-        local mountType, mountName = rest:match("^(%S+)%s+(.+)$")
-
-        if not mountType or not mountName then
-            print("|cffffcc00Usage:|r /sfm add ground <mount name>")
-            print("|cffffcc00Usage:|r /sfm add flying <mount name>")
-            return
-        end
-
-        mountType = string.lower(mountType)
-
-        if mountType ~= "ground" and mountType ~= "flying" then
-            print(
-                "|cffff4444Smart Favorite Mount:|r "
-                .. "Type must be ground or flying."
-            )
-            return
-        end
-
-        local mountID = FindMountByName(mountName)
-
-        if not mountID then
-            print(
-                "|cffff4444Smart Favorite Mount:|r Mount not found: "
-                .. mountName
-            )
-            return
-        end
-
-        AddFavorite(mountType, mountID)
-        return
-    end
-
-    if command == "remove" then
-        local mountType, mountName = rest:match("^(%S+)%s+(.+)$")
-
-        if not mountType or not mountName then
-            print("|cffffcc00Usage:|r /sfm remove ground <mount name>")
-            print("|cffffcc00Usage:|r /sfm remove flying <mount name>")
-            return
-        end
-
-        mountType = string.lower(mountType)
-
-        if mountType ~= "ground" and mountType ~= "flying" then
-            print(
-                "|cffff4444Smart Favorite Mount:|r "
-                .. "Type must be ground or flying."
-            )
-            return
-        end
-
-        local mountID = FindMountByName(mountName)
-
-        if not mountID then
-            print(
-                "|cffff4444Smart Favorite Mount:|r Mount not found: "
-                .. mountName
-            )
-            return
-        end
-
-        RemoveFavorite(mountType, mountID)
         return
     end
 
@@ -625,59 +428,5 @@ SlashCmdList["SMARTFAVORITEMOUNT"] = function(msg)
 
     print("|cffffcc00Smart Favorite Mount commands:|r")
     print("/sfm")
-    print("/sfm add ground <mount>")
-    print("/sfm add flying <mount>")
-    print("/sfm remove ground <mount>")
-    print("/sfm remove flying <mount>")
     print("/sfm list")
-end
-
-
--- =========================================================
--- Debug commands
--- =========================================================
-
-SLASH_SFMFLY1 = "/sfmfly"
-
-SlashCmdList["SFMFLY"] = function()
-    if IsFlyableArea() then
-        print(
-            "|cff00ff00Smart Favorite Mount:|r "
-            .. "This area IS flyable."
-        )
-    else
-        print(
-            "|cffff4444Smart Favorite Mount:|r "
-            .. "This area is NOT flyable."
-        )
-    end
-end
-
-
-SLASH_SFMINFO1 = "/sfminfo"
-
-SlashCmdList["SFMINFO"] = function(msg)
-    local mountID = FindMountByName(msg)
-
-    if not mountID then
-        print(
-            "|cffff4444Smart Favorite Mount:|r Mount not found: "
-            .. msg
-        )
-        return
-    end
-
-    local name = C_MountJournal.GetMountInfoByID(mountID)
-
-    local creatureDisplayID,
-          description,
-          source,
-          isSelfMount,
-          mountTypeID =
-        C_MountJournal.GetMountInfoExtraByID(mountID)
-
-    print("|cff00ccffSmart Favorite Mount Debug|r")
-    print("Name: " .. tostring(name))
-    print("Mount ID: " .. tostring(mountID))
-    print("Mount Type ID: " .. tostring(mountTypeID))
 end
